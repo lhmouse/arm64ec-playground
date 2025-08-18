@@ -1,0 +1,55 @@
+name: Test
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  main:
+    name: main
+    runs-on: windows-11-arm
+
+    env:
+      CFLAGS: -fuse-ld=lld -fms-runtime-lib=dll -Wall -Wextra
+
+    defaults:
+      run: { shell: pwsh }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download LLVM
+        run: |
+             curl.exe -LO "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/clang+llvm-20.1.8-aarch64-pc-windows-msvc.tar.xz"
+             tar -xaf clang+llvm-20.1.8-aarch64-pc-windows-msvc.tar.xz
+             cvpa clang+llvm-20.1.8-aarch64-pc-windows-msvc/bin | tee -a "${env:GITHUB_PATH}"
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: { arch: arm64 }
+
+      - name: Build ARM64EC EXE, linking against ARM64EC DLL
+        run: |
+             clang --target=arm64ec-pc-windows-msvc @(${env:CFLAGS} -split ' ') test_dll.c -shared -o test.dll
+             clang --target=arm64ec-pc-windows-msvc @(${env:CFLAGS} -split ' ') test_exe.c test.lib -o test.exe
+             ./test.exe
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: { arch: arm64_x64 }
+
+      - name: Rerun ARM64EC EXE, linking against x64 DLL
+        run: |
+             clang --target=x86_64-pc-windows-msvc @(${env:CFLAGS} -split ' ') test_dll.c -shared -o test.dll
+             ./test.exe
