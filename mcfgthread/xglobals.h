@@ -1,0 +1,843 @@
+/* This file is part of MCF Gthread.
+ * Copyright (C) 2022-2025 LH_Mouse. All wrongs reserved.
+ *
+ * MCF Gthread is free software. Licensing information is included in
+ * LICENSE.TXT as a whole. The GCC Runtime Library Exception applies
+ * to this file.  */
+
+#ifndef __MCFGTHREAD_XGLOBALS_
+#define __MCFGTHREAD_XGLOBALS_
+
+#include "fwd.h"
+#include "thread.h"
+#include "mutex.h"
+#include "cond.h"
+#include "dtor_queue.h"
+#include <minwindef.h>
+#include <winnt.h>
+#include <winerror.h>
+#include <sysinfoapi.h>
+#include <heapapi.h>
+
+#if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
+#  error Windows platforms are assumed to be little-endian.
+#endif
+
+#ifdef __cplusplus
+#  error This internal header is for C only.
+#endif
+
+#ifndef __MCF_XGLOBALS_IMPORT
+#  define __MCF_XGLOBALS_IMPORT
+#  define __MCF_XGLOBALS_INLINE  __MCF_GNU_INLINE
+#  define __MCF_XGLOBALS_READONLY   const
+#endif
+
+/* `NTSTATUS`; ntdef.h  */
+typedef LONG NTSTATUS;
+
+#define NT_SUCCESS(status)      (((ULONG)(status) & 0x80000000) == 0x00000000)
+#define NT_INFORMATION(status)  (((ULONG)(status) & 0xC0000000) == 0x40000000)
+#define NT_WARNING(status)      (((ULONG)(status) & 0xC0000000) == 0x80000000)
+#define NT_ERROR(status)        (((ULONG)(status) & 0xC0000000) == 0xC0000000)
+
+/* `UNICODE_STRING`; ntdef.h  */
+typedef struct _UNICODE_STRING UNICODE_STRING;
+struct _UNICODE_STRING
+  {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR Buffer;
+  };
+
+/* `OBJECT_ATTRIBUTES`; ntdef.h  */
+typedef struct _OBJECT_ATTRIBUTES OBJECT_ATTRIBUTES;
+struct _OBJECT_ATTRIBUTES
+  {
+    ULONG Length;
+    HANDLE RootDirectory;
+    UNICODE_STRING* ObjectName;
+    ULONG Attributes;
+    PVOID SecurityDescriptor;
+    PVOID SecurityQualityOfService;
+  };
+
+/* Hard-code these.  */
+#undef GetCurrentProcess
+#define GetCurrentProcess()  ((HANDLE) -1)
+
+#undef GetCurrentThread
+#define GetCurrentThread()   ((HANDLE) -2)
+
+/* Undefine macros that redirect to standard C functions, so the ones from
+ * system DLLs will be called.  */
+#undef RtlCopyMemory
+#undef RtlMoveMemory
+#undef RtlFillMemory
+#undef RtlZeroMemory
+#undef RtlEqualMemory
+
+/* Declare native APIs that we would like to use.  */
+NTSYSAPI void NTAPI RtlMoveMemory(void* dst, const void* src, SIZE_T size);
+NTSYSAPI void NTAPI RtlFillMemory(void* dst, SIZE_T size, int c);
+NTSYSAPI void NTAPI RtlZeroMemory(void* dst, SIZE_T size);
+
+NTSYSAPI ULONG NTAPI RtlNtStatusToDosError(NTSTATUS status);
+NTSYSAPI __MCF_FN_CONST ULONG NTAPI RtlNtStatusToDosErrorNoTeb(NTSTATUS status);
+NTSYSAPI __MCF_FN_PURE BOOLEAN NTAPI RtlDllShutdownInProgress(void);
+NTSYSAPI NTSTATUS NTAPI BaseGetNamedObjectDirectory(HANDLE* OutHandle);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtCreateSection(
+    OUT HANDLE* SectionHandle,
+    IN ACCESS_MASK DesiredAccess,
+    IN OPTIONAL OBJECT_ATTRIBUTES* ObjectAttributes,
+    IN LARGE_INTEGER* MaximumSize,
+    IN ULONG SectionPageProtection,
+    IN ULONG AllocationAttributes,
+    IN OPTIONAL HANDLE FileHandle);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtDuplicateObject(
+    IN HANDLE SourceProcessHandle,
+    IN HANDLE SourceHandle,
+    IN OPTIONAL HANDLE TargetProcessHandle,
+    OUT OPTIONAL HANDLE* TargetHandle,
+    IN ACCESS_MASK DesiredAccess,
+    IN ULONG HandleAttributes,
+    IN ULONG Options);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtClose(
+    IN HANDLE Handle);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtMapViewOfSection(
+    IN HANDLE SectionHandle,
+    IN HANDLE ProcessHandle,
+    IN OUT PVOID* BaseAddress,
+    IN ULONG_PTR ZeroBits,
+    IN SIZE_T CommitSize,
+    IN OUT OPTIONAL LARGE_INTEGER* SectionOffset,
+    IN OUT SIZE_T* ViewSize,
+    IN UINT InheritDisposition,
+    IN ULONG AllocationType,
+    IN ULONG Win32Protect);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtUnmapViewOfSection(
+    IN HANDLE ProcessHandle,
+    IN OPTIONAL PVOID BaseAddress);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtWaitForSingleObject(
+    IN HANDLE Handle,
+    IN BOOLEAN Alertable,
+    IN OPTIONAL LARGE_INTEGER* Timeout);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtDelayExecution(
+    IN BOOLEAN Alertable,
+    IN OPTIONAL LARGE_INTEGER* Timeout);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtWaitForKeyedEvent(
+    IN HANDLE KeyedEventHandle,
+    IN PVOID Key,
+    IN BOOLEAN Alertable,
+    IN OPTIONAL LARGE_INTEGER* Timeout);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtReleaseKeyedEvent(
+    IN HANDLE KeyedEventHandle,
+    IN PVOID Key,
+    IN BOOLEAN Alertable,
+    IN OPTIONAL LARGE_INTEGER* Timeout);
+
+NTSYSCALLAPI
+NTSTATUS
+NTAPI
+NtRaiseHardError(
+    IN NTSTATUS Status,
+    IN ULONG NumberOfParameters,
+    IN ULONG UnicodeStringParameterMask,
+    IN OPTIONAL ULONG_PTR* Parameters,
+    IN ULONG ResponseOption,
+    OUT ULONG* Response);
+
+/* Define read-only data that must be placed in `.rdata` despite
+ * `-fdata-sections`.  */
+#define __MCF_CRT_RDATA  __attribute__((__used__, __section__(".rdata")))
+#define __MCF_CRT_XL(x)  __attribute__((__used__, __section__(".CRT$XL" #x)))
+
+/* Initialize a GUID in the canonical form.  */
+#define __MCF_GUID(a8,b4,c4,d4,e12)  \
+    ((GUID) { 0x##a8, 0x##b4, 0x##c4, { 0x##d4 >> 8, 0x##d4 & 0xFF, 0x##e12 >> 40,  \
+              (0x##e12 >> 32) & 0xFF, (0x##e12 >> 24) & 0xFF, (0x##e12 >> 16) & 0xFF,  \
+              (0x##e12 >> 8) & 0xFF, 0x##e12 & 0xFF } })
+
+/* Define a non-zero but invalid value. This can be used to mark a pointer
+ * to freed memory, or to prevent a static pointer from being placed into
+ * the `.bss` section.  */
+#define __MCF_BAD_PTR  ((void*) -127)
+
+/* Define a macro that is identical to `RTL_CONSTANT_STRING()` as we are not
+ * willing to include <ntdef.h> here.  */
+#define __MCF_NT_STRING_INIT(s)  \
+    { .Length = sizeof(s) - sizeof(*(s)),  \
+      .MaximumLength = sizeof(s),  \
+      .Buffer = (void*) ((s) + __MCF_STATIC_ASSERT_0(  \
+         !__builtin_types_compatible_p(__typeof__(1+&*(s)), __typeof__(s))))  }
+
+/* Define macros and types for lazy binding. If a symbol cannot be found
+ * during process startup, it shall be initialized to a null pointer.  */
+typedef void __stdcall decltype_GetSystemTimePreciseAsFileTime(FILETIME*);
+typedef void __stdcall decltype_QueryInterruptTime(ULONGLONG*);
+typedef LPVOID __stdcall decltype_TlsGetValue2(ULONG);
+
+#define __MCF_LAZY_D_(name)   decltype_##name* __f_##name
+#define __MCF_LAZY_P_(name)   __f_##name
+
+#define __MCF_LAZY_LOAD(out, dll, name)  \
+    ({ decltype_##name* __temp1 = __MCF_nullptr;  \
+       if(dll) __temp1 = __MCF_CAST_PTR(decltype_##name, GetProcAddress(dll, #name));  \
+       if(__temp1) *(out) = __temp1;  \
+       __temp1;  })
+
+/* Declare helper functions here.  */
+__MCF_XGLOBALS_IMPORT
+EXCEPTION_DISPOSITION
+__cdecl
+__MCF_seh_top(EXCEPTION_RECORD* rec, PVOID estab_frame, CONTEXT* ctx, PVOID disp_ctx);
+
+#if defined __MCF_M_X8632
+
+/* On x86, SEH is stack-based.  */
+__MCF_ALWAYS_INLINE
+EXCEPTION_REGISTRATION_RECORD*
+__MCF_i386_seh_install(EXCEPTION_REGISTRATION_RECORD* record)
+  {
+    __MCF_TEB_LOAD_32_ABS(&(record->Next), 0);
+    __MCF_TEB_STORE_32_ABS(0, record);
+    return record;
+  }
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_i386_seh_cleanup(EXCEPTION_REGISTRATION_RECORD* const* ref)
+  {
+    __MCF_TEB_STORE_32_ABS(0, (*ref)->Next);
+  }
+
+#  define __MCF_SEH_DEFINE_TERMINATE_FILTER  \
+    EXCEPTION_REGISTRATION_RECORD* const __MCF_i386_seh_node__  \
+            __attribute__((__cleanup__(__MCF_i386_seh_cleanup)))  \
+      = __MCF_i386_seh_install(&(EXCEPTION_REGISTRATION_RECORD) {  \
+           .Handler = __MCF_CAST_PTR(EXCEPTION_ROUTINE, __MCF_seh_top) })
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_invoke_cxa_dtor(__MCF_cxa_dtor_any_ dtor, void* arg)
+  {
+    /* The argument is passed both via the ECX register and on the stack, to
+     * allow both `__cdecl` and `__thiscall` functions to work properly.  */
+    typedef void omni_type(int, int, void*, void*) __attribute__((__regparm__(3)));
+    int eax, edx;
+    __asm__ ("" : "=a"(eax), "=d"(edx));  /* dummy */
+    (* __MCF_CAST_PTR(omni_type, dtor.__cdecl_ptr)) (eax, edx, arg, arg);
+  }
+
+/* GCC assumes that ESP is always aligned to a 16-byte boundary, but for MSVC
+ * it might not be aligned, so it has to be enforced, otherwise SSE instructions
+ * may fault.  */
+#  define __MCF_REALIGN_SP    __attribute__((__force_align_arg_pointer__))
+
+#else  /* !defined __MCF_M_X8632 */
+
+/* Otherwise, SEH is table-based. This code must work on both x86_64 and ARM64,
+ * as well as ARM64EC.  */
+#  define __MCF_SEH_DEFINE_TERMINATE_FILTER  \
+    __asm__ (".seh_handler __MCF_seh_top, @except, @unwind")  /* no semicolon  */
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_invoke_cxa_dtor(__MCF_cxa_dtor_any_ dtor, void* arg)
+  {
+    (* dtor.__cdecl_ptr) (arg);
+  }
+
+#  define __MCF_REALIGN_SP    /* nothing */
+
+#endif  /* !defined __MCF_M_X8632 */
+
+/* This structure contains timeout values that will be passed to NT syscalls.  */
+typedef struct __MCF_winnt_timeout __MCF_winnt_timeout;
+struct __MCF_winnt_timeout
+  {
+    LARGE_INTEGER __li;
+    ULONGLONG __since;
+  };
+
+__MCF_XGLOBALS_IMPORT
+void
+__MCF_initialize_winnt_timeout_v3(__MCF_winnt_timeout* to, const int64_t* ms_opt);
+
+__MCF_XGLOBALS_IMPORT
+void
+__MCF_adjust_winnt_timeout_v3(__MCF_winnt_timeout* to);
+
+__MCF_XGLOBALS_IMPORT
+void
+__MCF_batch_release_common(const void* key, size_t count);
+
+/* Copy a block of memory forward, like `memcpy()`.  */
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mcopy(void* dst, const void* src, size_t size);
+
+/* Copy a block of memory backward.  */
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mcopy_backward(void* dst, const void* src, size_t size);
+
+/* Fill a block of memory with the given byte, like `memset()`.  */
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mfill(void* dst, int val, size_t size);
+
+/* Fill a block of memory with zeroes, like `bzero()`.  */
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mzero(void* dst, size_t size);
+
+/* Compare two blocks of memory, like `memcmp()`.  */
+__MCF_XGLOBALS_INLINE __MCF_FN_PURE
+int
+__cdecl
+__MCF_mcompare(const void* src, const void* cmp, size_t size);
+
+/* Check whether two blocks of memory compare equal.  */
+__MCF_XGLOBALS_INLINE __MCF_FN_PURE
+bool
+__cdecl
+__MCF_mequal(const void* src, const void* cmp, size_t size);
+
+/* Allocate a block of zeroed memory, like `calloc()`.  */
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_malloc_0(size_t size) __attribute__((__malloc__, __alloc_size__(1)));
+
+/* Set the size a block of memory in place, like `truncate()` on files.
+ * If the existent block should be extended, vacuum bytes are filled with
+ * zeroes.  */
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_mresize_0(void* ptr, size_t size) __attribute__((__alloc_size__(2)));
+
+/* Re-allocate a block of memory, like `realloc()`. If the existent
+ * block should be extended, vacuum bytes are filled with zeroes.  */
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_mrealloc_0(void** pptr, size_t size) __attribute__((__alloc_size__(2)));
+
+/* Allocate a copy of a block of memory, like `malloc()` followed by
+ * `memcpy()`.  */
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_malloc_copy(const void* data, size_t size) __attribute__((__alloc_size__(2)));
+
+/* Get the size of an allocated block, like `malloc_usable_size()`.  */
+__MCF_XGLOBALS_INLINE __MCF_FN_CONST
+size_t
+__MCF_msize(const void* ptr);
+
+/* Free a block of memory, like `free()`, except that the argument shall not
+ * be a null pointer.  */
+__MCF_XGLOBALS_INLINE
+void
+__MCF_mfree_nonnull(void* ptr);
+
+/* These functions set the last error code and return the second argument.
+ * They should be eligible for tail-call optimization.  */
+__MCF_XGLOBALS_IMPORT __MCF_FN_COLD
+int
+__MCF_win32_error_i(ULONG code, int val);
+
+__MCF_XGLOBALS_IMPORT __MCF_FN_COLD
+void*
+__MCF_win32_error_p(ULONG code, void* ptr);
+
+__MCF_XGLOBALS_IMPORT __MCF_FN_COLD
+void*
+__MCF_win32_ntstatus_p(NTSTATUS status, void* ptr);
+
+/* These functions are declared here for the sake of completeness, and are not
+ * meant to be called directly.  */
+__MCF_XGLOBALS_IMPORT
+void
+__MCF_run_static_dtors(_MCF_mutex* mtx, __MCF_dtor_queue* queue, void* dso);
+
+__MCF_XGLOBALS_IMPORT
+void
+__MCF_gthread_initialize_globals(void);
+
+__MCF_XGLOBALS_IMPORT
+void
+__MCF_gthread_on_thread_exit(void);
+
+/* Declare global data.  */
+typedef union __MCF_thread_storage __MCF_thread_storage;
+union __MCF_thread_storage
+  {
+    __MCF_ALIGNED(16) char __storage_v1[__MCF_64_32(1600, 800)];
+    struct
+      {
+        __MCF_BR(int32_t) __nref;  /* atomic reference count  */
+        uint32_t __tid;  /* thread id  */
+        __MCF_HANDLE __handle;  /* win32 thread handle  */
+      };
+  };
+
+typedef struct __MCF_crt_xglobals __MCF_crt_xglobals;
+struct __MCF_crt_xglobals
+  {
+    __MCF_crt_xglobals* __self_ptr;
+    uint32_t __self_size;
+    uint32_t __tls_index;
+
+    /* the static thread object  */
+    __MCF_BR(__MCF_thread_storage) __main_thread;
+
+    /* `atexit()` support  */
+    __MCF_BR(_MCF_mutex) __exit_mtx;
+    __MCF_BR(__MCF_dtor_queue) __exit_queue;
+
+    /* `at_quick_exit()` support  */
+    __MCF_BR(_MCF_mutex) __quick_exit_mtx;
+    __MCF_BR(__MCF_dtor_queue) __quick_exit_queue;
+
+    /* mutex support  */
+    __MCF_ALIGNED(64) bool __mutex_spin_field[2048];
+
+    /* thread suspension support  */
+    __MCF_BR(_MCF_cond) __interrupt_cond;
+
+    /* WARNING: Fields hereinafter must be accessed via `__MCF_G_FIELD_OPT`!  */
+    __MCF_LAZY_D_(GetSystemTimePreciseAsFileTime);
+    __MCF_LAZY_D_(QueryInterruptTime);
+    __MCF_BR(_MCF_mutex) __thread_oom_mtx;
+    __MCF_thread_storage __thread_oom_self_st;
+  };
+
+/* Ensure we don't mess things up.  */
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __self_ptr) == 0);
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __self_size) == __MCF_64_32(8, 4));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __tls_index) == __MCF_64_32(12, 8));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __main_thread) == __MCF_64_32(16, 16));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __exit_mtx) == __MCF_64_32(1616, 816));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __exit_queue) == __MCF_64_32(1624, 820));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __quick_exit_mtx) == __MCF_64_32(3152, 1584));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __quick_exit_queue) == __MCF_64_32(3160, 1588));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __mutex_spin_field) == __MCF_64_32(4736, 2368));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __interrupt_cond) == __MCF_64_32(6784, 4416));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __f_GetSystemTimePreciseAsFileTime) == __MCF_64_32(6792, 4420));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __f_QueryInterruptTime) == __MCF_64_32(6800, 4424));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __thread_oom_mtx) == __MCF_64_32(6808, 4428));
+__MCF_STATIC_ASSERT(offsetof(__MCF_crt_xglobals, __thread_oom_self_st) == __MCF_64_32(6816, 4432));
+
+/* These are constants that have to be initialized at load time.  */
+extern __MCF_BR(GUID) const __MCF_crt_gthread_guid;
+extern SYSTEM_INFO __MCF_XGLOBALS_READONLY __MCF_crt_sysinfo;
+extern HANDLE __MCF_XGLOBALS_READONLY __MCF_crt_heap;
+extern double __MCF_XGLOBALS_READONLY __MCF_crt_pf_recip;
+extern HMODULE __MCF_XGLOBALS_READONLY __MCF_crt_kernelbase;
+extern HMODULE __MCF_XGLOBALS_READONLY __MCF_crt_ntdll;
+extern decltype_TlsGetValue2* __MCF_XGLOBALS_READONLY __MCF_crt_TlsGetValue;
+
+/* This is a pointer to the process-specific data.
+ * As mcfgthread may be linked statically by user DLLs, we must ensure that, in
+ * the same process, all instances of this pointer point to the same object. This
+ * is achieved by having them point to a named file mapping, which is created
+ * by the current process with exclusive access, and whose name is generated from
+ * its process ID. Additional randomness is introduced to prevent the name from
+ * being predicted.  */
+extern __MCF_crt_xglobals* __MCF_XGLOBALS_READONLY restrict __MCF_g;
+
+/* As `__MCF_crt_xglobals` is shared between all static and shared instances of
+ * this library within a single process, we have to involve sort of versioning.  */
+#define __MCF_G_FIELD_OPT(field)  \
+    ((__MCF_g->__self_size >= offsetof(__MCF_crt_xglobals, field) + sizeof(__MCF_g->field))  \
+     ? &(__MCF_g->field)  \
+     : __MCF_nullptr)
+
+#define __MCF_G_HAS_LAZY(name)   (__MCF_G_FIELD_OPT(__MCF_LAZY_P_(name)) && __MCF_g->__MCF_LAZY_P_(name))
+#define __MCF_G_LAZY(name)           (*(__MCF_g->__MCF_LAZY_P_(name)))
+#define __MCF_G_SET_LAZY(dll, name)    __MCF_LAZY_LOAD(&(__MCF_g->__MCF_LAZY_P_(name)), dll, name)
+
+/* Define inline functions after all declarations.
+ * We would like to keep them away from declarations for conciseness, which also
+ * matches the disposition of non-inline functions. Note that however, unlike C++
+ * inline functions, they have to have consistent inline specifiers throughout
+ * this file.  */
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mcopy(void* dst, const void* src, size_t size)
+  {
+    __MCF_ASSERT((uintptr_t) dst - (uintptr_t) src >= size);
+#if defined __MCF_M_X8632_ASM || defined __MCF_M_X8664_ASM
+    PVOID edi, ecx, esi;
+    __asm__ volatile (
+      "rep movsb"
+      : "=D"(edi), "=c"(ecx), "=S"(esi)
+      : "0"(dst), "1"(size), "2"(src)
+      : "memory"
+    );
+#elif defined __MCF_M_ARM64_ASM && defined __ARM_FEATURE_MOPS
+    PVOID x0, x1, x2;
+    __asm__ volatile (
+      "cpyfp [%0]!, [%2]!, %1!; "
+      "cpyfm [%0]!, [%2]!, %1!; "
+      "cpyfe [%0]!, [%2]!, %1!; "
+      : "=&r"(x0), "=&r"(x1), "=&r"(x2)
+      : "0"(dst), "1"(size), "2"(src)
+      : "memory"
+    );
+#else
+    RtlMoveMemory(dst, src, size);
+#endif
+    return dst;
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mcopy_backward(void* dst, const void* src, size_t size)
+  {
+    __MCF_ASSERT((uintptr_t) src - (uintptr_t) dst >= size);
+#if defined __MCF_M_X8632_ASM || defined __MCF_M_X8664_ASM
+    PVOID edi, ecx, esi;
+    __asm__ volatile (
+      "std; "
+      "rep movsb; "
+      "cld; "
+      : "=D"(edi), "=c"(ecx), "=S"(esi)
+      : "0"((char*) dst + size - 1), "1"(size), "2"((char*) src + size - 1)
+      : "memory"
+    );
+#elif defined __MCF_M_ARM64_ASM && defined __ARM_FEATURE_MOPS
+    PVOID x0, x1, x2;
+    __asm__ volatile (
+      "cpyp [%0]!, [%2]!, %1!; "
+      "cpym [%0]!, [%2]!, %1!; "
+      "cpye [%0]!, [%2]!, %1!; "
+      : "=&r"(x0), "=&r"(x1), "=&r"(x2)
+      : "0"(dst), "1"(size), "2"(src)
+      : "memory"
+    );
+#else
+    RtlMoveMemory(dst, src, size);
+#endif
+    return dst;
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mfill(void* dst, int val, size_t size)
+  {
+#if defined __MCF_M_X8632_ASM || defined __MCF_M_X8664_ASM
+    PVOID edi, ecx;
+    __asm__ volatile (
+      "rep stosb"
+      : "=D"(edi), "=c"(ecx)
+      : "0"(dst), "1"(size), "a"(val)
+      : "memory"
+    );
+#elif defined __MCF_M_ARM64_ASM && defined __ARM_FEATURE_MOPS
+    PVOID x0, x1, x2;
+    __asm__ volatile (
+      "setp [%0]!, %1!, %2; "
+      "setm [%0]!, %1!, %2; "
+      "sete [%0]!, %1!, %2; "
+      : "=&r"(x0), "=&r"(x1), "=&r"(x2)
+      : "0"(dst), "1"(size), "2"(val)
+      : "memory"
+    );
+#else
+    RtlFillMemory(dst, size, val);
+#endif
+    return dst;
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__cdecl
+__MCF_mzero(void* dst, size_t size)
+  {
+#if defined __MCF_M_X8632_ASM || defined __MCF_M_X8664_ASM
+    PVOID edi, ecx;
+    __asm__ volatile (
+      "rep stosb"
+      : "=D"(edi), "=c"(ecx)
+      : "0"(dst), "1"(size), "a"(0)
+      : "memory"
+    );
+#else
+    RtlZeroMemory(dst, size);
+#endif
+    return dst;
+  }
+
+__MCF_ALWAYS_INLINE
+int
+__cdecl
+__MCF_do_std_compare(const void* src, const void* src_end, const void* cmp)
+  {
+    typedef const volatile unsigned char* PCVBYTE;
+    PCVBYTE sptr = src, cptr = cmp;
+    int diff = 0;
+    while((diff == 0) && (sptr != src_end))
+      diff = *(sptr ++) - *(cptr ++);
+    return diff;
+  }
+
+__MCF_XGLOBALS_INLINE __MCF_FN_PURE
+int
+__cdecl
+__MCF_mcompare(const void* src, const void* cmp, size_t size)
+  {
+    int diff;
+#if defined __MCF_M_X8632_ASM || defined __MCF_M_X8664_ASM
+    PVOID esi, edi, ecx;
+    __asm__ (
+      "xor eax, eax; "  /* clear ZF and CF  */
+      "repz cmpsb; "    /* compare DS:[ESI] with ES:[EDI]  */
+      "setnz al; "      /* EAX = 0 if equal, 1 if less or greater  */
+      "sbb ecx, ecx; "  /* ECX = 0 if equal or greater, -1 if less  */
+      "or eax, ecx; "
+      : "=a"(diff), "=S"(esi), "=c"(ecx), "=D"(edi)
+      : "1"(src), "2"(size), "3"(cmp)
+      : "memory", "cc"
+    );
+#else
+    diff = __MCF_do_std_compare(src, (const char*) src + size, cmp);
+#endif
+    return diff;
+  }
+
+__MCF_XGLOBALS_INLINE __MCF_FN_PURE
+bool
+__cdecl
+__MCF_mequal(const void* src, const void* cmp, size_t size)
+  {
+    bool eq;
+#if defined __MCF_M_X8632_ASM || defined __MCF_M_X8664_ASM
+    PVOID esi, edi, ecx;
+    __asm__ (
+      "test ecx, ecx; " /* clear ZF if there is no input  */
+      "repz cmpsb; "    /* compare DS:[ESI] with ES:[EDI]  */
+      : "=@ccz"(eq), "=S"(esi), "=c"(ecx), "=D"(edi)
+      : "1"(src), "2"(size), "3"(cmp)
+      : "memory", "cc"
+    );
+#else
+    eq = __MCF_do_std_compare(src, (const char*) src + size, cmp) == 0;
+#endif
+    return eq;
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_malloc_0(size_t size)
+  {
+    return HeapAlloc(__MCF_crt_heap, HEAP_ZERO_MEMORY, size);
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_mresize_0(void* ptr, size_t size)
+  {
+    return HeapReAlloc(__MCF_crt_heap, HEAP_ZERO_MEMORY | HEAP_REALLOC_IN_PLACE_ONLY, ptr, size);
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_mrealloc_0(void** pptr, size_t size)
+  {
+    void* ptr = HeapReAlloc(__MCF_crt_heap, HEAP_ZERO_MEMORY, *pptr, size);
+    if(ptr)
+      *pptr = ptr;
+    return ptr;
+  }
+
+__MCF_XGLOBALS_INLINE
+void*
+__MCF_malloc_copy(const void* data, size_t size)
+  {
+    void* ptr = HeapAlloc(__MCF_crt_heap, 0, size);
+    if(ptr)
+      __MCF_mcopy(ptr, data, size);
+    return ptr;
+  }
+
+__MCF_XGLOBALS_INLINE __MCF_FN_CONST
+size_t
+__MCF_msize(const void* ptr)
+  {
+    size_t size = HeapSize(__MCF_crt_heap, 0, ptr);
+    __MCF_ASSERT(size != (size_t) -1);
+    return size;
+  }
+
+__MCF_XGLOBALS_INLINE
+void
+__MCF_mfree_nonnull(void* ptr)
+  {
+    __MCF_ASSERT(ptr != __MCF_nullptr);
+#ifdef __MCF_DEBUG
+    size_t size = HeapSize(__MCF_crt_heap, 0, ptr);
+    __MCF_ASSERT(size != (size_t) -1);
+    __MCF_mfill(ptr, 0xFE, size);
+#endif
+    int succ = HeapFree(__MCF_crt_heap, 0, ptr);
+    __MCF_ASSERT(succ);
+  }
+
+__MCF_ALWAYS_INLINE
+HANDLE
+__MCF_get_directory_for_named_objects(void)
+  {
+    HANDLE handle;
+    NTSTATUS status = BaseGetNamedObjectDirectory(&handle);
+    __MCF_ASSERT(NT_SUCCESS(status));
+    return handle;
+  }
+
+__MCF_ALWAYS_INLINE
+bool
+__MCF_is_process_shutting_down(void)
+  {
+    return RtlDllShutdownInProgress();
+  }
+
+__MCF_ALWAYS_INLINE
+HANDLE
+__MCF_create_named_section(OBJECT_ATTRIBUTES* Attributes, LONGLONG MaximumSize)
+  {
+    HANDLE handle;
+    LARGE_INTEGER size = { .QuadPart = MaximumSize };
+    NTSTATUS status = NtCreateSection(&handle, SECTION_ALL_ACCESS, Attributes, &size,
+                                      PAGE_READWRITE, SEC_COMMIT, NULL);
+    return NT_SUCCESS(status) ? handle : __MCF_win32_ntstatus_p(status, NULL);
+  }
+
+__MCF_ALWAYS_INLINE
+HANDLE
+__MCF_duplicate_handle(HANDLE SourceHandle)
+  {
+    HANDLE handle;
+    HANDLE process = GetCurrentProcess();
+    NTSTATUS status = NtDuplicateObject(process, SourceHandle, process, &handle, 0, 0,
+                                        DUPLICATE_SAME_ACCESS);
+    return NT_SUCCESS(status) ? handle : __MCF_win32_ntstatus_p(status, NULL);
+  }
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_close_handle(HANDLE Handle)
+  {
+    NTSTATUS status = NtClose(Handle);
+    __MCF_ASSERT(NT_SUCCESS(status));
+  }
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_map_view_of_section(HANDLE Section, void** BaseAddress, size_t* ViewSize, bool Inheritable)
+  {
+    HANDLE process = GetCurrentProcess();
+    UINT inherit = Inheritable ? 1U : 2U;  /* ViewShare : ViewUnmap */
+    NTSTATUS status = NtMapViewOfSection(Section, process, BaseAddress, 0, 0, __MCF_nullptr,
+                                         (SIZE_T*) ViewSize, inherit, 0, PAGE_READWRITE);
+    __MCF_ASSERT(NT_SUCCESS(status));
+  }
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_unmap_view_of_section(void* BaseAddress)
+  {
+    HANDLE process = GetCurrentProcess();
+    NTSTATUS status = NtUnmapViewOfSection(process, BaseAddress);
+    __MCF_ASSERT(NT_SUCCESS(status));
+  }
+
+__MCF_ALWAYS_INLINE
+int
+__MCF_wait_for_single_object(HANDLE Handle, const __MCF_winnt_timeout* Timeout)
+  {
+    NTSTATUS status = NtWaitForSingleObject(Handle, false, (LARGE_INTEGER*) &(Timeout->__li));
+    __MCF_ASSERT(NT_SUCCESS(status));
+    return (status == STATUS_WAIT_0) ? 0 : -1;
+  }
+
+__MCF_ALWAYS_INLINE
+void
+__MCF_sleep(const __MCF_winnt_timeout* Timeout)
+  {
+    NTSTATUS status = NtDelayExecution(false, (LARGE_INTEGER*) &(Timeout->__li));
+    __MCF_ASSERT(NT_SUCCESS(status));
+  }
+
+__MCF_ALWAYS_INLINE
+int
+__MCF_keyed_event_wait(const void* Key, const __MCF_winnt_timeout* Timeout)
+  {
+    NTSTATUS status = NtWaitForKeyedEvent(NULL, (PVOID) Key, false, (LARGE_INTEGER*) &(Timeout->__li));
+    __MCF_ASSERT(NT_SUCCESS(status));
+    return (status == STATUS_WAIT_0) ? 0 : -1;
+  }
+
+__MCF_ALWAYS_INLINE
+int
+__MCF_keyed_event_signal(const void* Key, const __MCF_winnt_timeout* Timeout)
+  {
+    NTSTATUS status = NtReleaseKeyedEvent(NULL, (PVOID) Key, false, (LARGE_INTEGER*) &(Timeout->__li));
+    __MCF_ASSERT(NT_SUCCESS(status));
+    return (status == STATUS_WAIT_0) ? 0 : -1;
+  }
+
+__MCF_ALWAYS_INLINE
+int
+__MCF_show_service_notification(const UNICODE_STRING* caption, ULONG options, const UNICODE_STRING* text)
+  {
+    ULONG response = 0;
+    ULONG_PTR params[4] = { (ULONG_PTR) text, (ULONG_PTR) caption, options, 0 };
+    NTSTATUS status = NtRaiseHardError(0x50000018 /* SERVICE_NOTIFICATION | OVERRIDE_ERRORMODE */,
+                                       ARRAYSIZE(params), 0x03, params,
+                                       1 /* OptionOk */, &response);
+    return NT_SUCCESS(status) ? (int) response : -1;
+  }
+
+#endif  /* __MCFGTHREAD_XGLOBALS_  */

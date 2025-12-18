@@ -1,0 +1,57 @@
+name: Test
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  llvm-mingw:
+    name: llvm-mingw
+    runs-on: windows-11-arm
+
+    defaults:
+      run: { shell: pwsh }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download LLVM MinGW
+        run: >-
+             curl.exe -LO "https://github.com/mstorsjo/llvm-mingw/releases/download/20251202/llvm-mingw-20251202-ucrt-aarch64.zip" &&
+             unzip llvm-mingw-20251202-ucrt-aarch64.zip &&
+             cvpa llvm-mingw-20251202-ucrt-aarch64/bin | tee -a "${env:GITHUB_PATH}"
+
+      - name: Run ARM64 EXE, linked against ARM64 DLL
+        run: |
+             clang --target=aarch64-w64-mingw32 -D__MCF_IN_DLL -I. -Imcfgthread mcfgthread\*.c -nostdlib -lkernel32 -lntdll -shared -o libmcfgthread.dll
+             clang++ --target=aarch64-w64-mingw32 -static -I. -Imcfgthread gthr_call_once_unwind_seh.cpp libmcfgthread.dll -o test.exe
+             .\test.exe
+
+      - name: Run x86-64 EXE, linked against x86-64 DLL
+        run: |
+             clang --target=x86_64-w64-mingw32 -masm=intel -D__MCF_IN_DLL -I. -Imcfgthread mcfgthread\*.c -nostdlib -lkernel32 -lntdll -shared -o libmcfgthread.dll
+             clang++ --target=x86_64-w64-mingw32 -static -I. -Imcfgthread gthr_call_once_unwind_seh.cpp libmcfgthread.dll -o test.exe
+             .\test.exe
+
+      - name: Run x86-64 EXE, linked against ARM64EC DLL (no --gc-sections)
+        run: |
+             clang --target=arm64ec-w64-mingw32 -D__MCF_IN_DLL -I. -Imcfgthread mcfgthread\*.c -nostdlib -lkernel32 -lntdll -shared -o libmcfgthread.dll
+             .\test.exe
+
+      - name: Run x86-64 EXE, linked against ARM64EC DLL (--gc-sections)
+        run: |
+             clang --target=arm64ec-w64-mingw32 -D__MCF_IN_DLL -I. -Imcfgthread mcfgthread\*.c -nostdlib -lkernel32 -lntdll -shared -o libmcfgthread.dll "-Wl,--gc-sections"
+             .\test.exe
