@@ -9,13 +9,15 @@
 #define __MCFGTHREAD_GTHR_AUX_
 
 #include "fwd.h"
-#include "once.h"
 
 __MCF_CXX(extern "C" {)
 #ifndef __MCF_GTHR_AUX_IMPORT
 #  define __MCF_GTHR_AUX_IMPORT
 #  define __MCF_GTHR_AUX_INLINE  __MCF_GNU_INLINE
 #endif
+
+int _MCF_once_wait(int* once, const void* timeout_opt);
+void _MCF_once_release(int* once);
 
 __MCF_GTHR_AUX_INLINE
 void

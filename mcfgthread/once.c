@@ -7,12 +7,6 @@ _MCF_once_wait(int* once, const void* timeout_opt)
 
 __declspec(dllexport)
 void
-_MCF_once_abort(int* once)
-  {
-  }
-
-__declspec(dllexport)
-void
 _MCF_once_release(int* once)
   {
   }
