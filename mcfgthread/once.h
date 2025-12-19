@@ -50,7 +50,7 @@ int
 _MCF_once_wait_slow(int* __once, const int64_t* __timeout_opt)
   __MCF_noexcept;
 
-__MCF_ONCE_INLINE
+__MCF_ONCE_IMPORT
 int
 _MCF_once_wait(int* __once, const int64_t* __timeout_opt)
   __MCF_noexcept;
@@ -86,14 +86,6 @@ void
 _MCF_once_init(int* __once)
   __MCF_noexcept
   {
-  }
-
-__MCF_ONCE_INLINE
-int
-_MCF_once_wait(int* __once, const int64_t* __timeout_opt)
-  __MCF_noexcept
-  {
-    return 1;
   }
 
 __MCF_CXX(})  /* extern "C"  */
