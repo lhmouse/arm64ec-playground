@@ -30,21 +30,19 @@ typedef unsigned long long QWORD, ULONGLONG;
 typedef unsigned __MCF_64_32(long long, int) UINT_PTR;
 typedef unsigned __MCF_64_32(long long, long) ULONG_PTR;
 
-#if defined __MSYS__
-#  define DllMainCRTStartup  _msys_dll_entry
-#elif defined __CYGWIN__
-#  define DllMainCRTStartup  _cygwin_dll_entry
-#elif defined _MSC_VER
-#  define DllMainCRTStartup  _DllMainCRTStartup
-#endif
-
-int
-__stdcall
-DllMainCRTStartup(PVOID instance, ULONG reason, PVOID reserved);
-
 int
 __stdcall
 DllMainCRTStartup(PVOID instance, ULONG reason, PVOID reserved)
+  {
+    (void) instance;
+    (void) reason;
+    (void) reserved;
+    return 1;
+  }
+
+int
+__stdcall
+_DllMainCRTStartup(PVOID instance, ULONG reason, PVOID reserved)
   {
     (void) instance;
     (void) reason;
