@@ -5,26 +5,31 @@
  * LICENSE.TXT as a whole. The GCC Runtime Library Exception applies
  * to this file.  */
 
-#include "xprecompiled.h"
-#define __MCF_ONCE_IMPORT  __MCF_DLLEXPORT
-#define __MCF_ONCE_INLINE  __MCF_DLLEXPORT
+#define WIN32_LEAN_AND_MEAN  1
+#define NOMINMAX  1
+#define NOGDI  1
+#define NOMSG  1
+#define _WIN32_WINNT  0x0601
+#include <windows.h>
+#define __MCF_ONCE_IMPORT  __declspec(dllexport)
+#define __MCF_ONCE_INLINE  __declspec(dllexport)
 #include "once.h"
 #include "xglobals.h"
 
-__MCF_DLLEXPORT
+__declspec(dllexport)
 int
 _MCF_once_wait_slow(_MCF_once* once, const int64_t* timeout_opt)
   {
     return 1;
   }
 
-__MCF_DLLEXPORT __MCF_NEVER_INLINE
+__declspec(dllexport) __MCF_NEVER_INLINE
 void
 _MCF_once_abort(_MCF_once* once)
   {
   }
 
-__MCF_DLLEXPORT __MCF_NEVER_INLINE
+__declspec(dllexport) __MCF_NEVER_INLINE
 void
 _MCF_once_release(_MCF_once* once)
   {

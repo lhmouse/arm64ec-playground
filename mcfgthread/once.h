@@ -9,7 +9,6 @@
 #define __MCFGTHREAD_ONCE_
 
 #include "fwd.h"
-#include "atomic.h"
 
 __MCF_CXX(extern "C" {)
 #ifndef __MCF_ONCE_IMPORT
@@ -19,12 +18,14 @@ __MCF_CXX(extern "C" {)
 
 /* Define the once flag struct.
  * This takes up the same storage as a pointer.  */
+typedef struct __MCF_once _MCF_once;
 struct __MCF_once
   {
     __MCF_EX uintptr_t __ready : 8;  /* this conforms to the Itanium C++ ABI  */
     __MCF_EX uintptr_t __locked : 1;
     __MCF_EX uintptr_t __nsleep : __MCF_PTR_BITS - 9;  /* number of sleeping threads  */
   };
+
 
 /* Initializes a once-initialization flag dynamically. Static ones should be
  * initialized with `{0}`, like other structs.
@@ -96,8 +97,6 @@ void
 _MCF_once_init(_MCF_once* __once)
   __MCF_noexcept
   {
-    _MCF_once __temp = __MCF_0_INIT;
-    _MCF_atomic_store_pptr_rlx(__once, &__temp);
   }
 
 __MCF_ONCE_INLINE
@@ -105,15 +104,7 @@ int
 _MCF_once_wait(_MCF_once* __once, const int64_t* __timeout_opt)
   __MCF_noexcept
   {
-#if __MCF_EXPAND_INLINE_DEFINITIONS
-    _MCF_once __old_v;
-    _MCF_atomic_load_pptr_acq(&__old_v, __once);
-    if(__old_v.__ready)
-      return 0;
-    else if(__old_v.__locked && __timeout_opt && (*__timeout_opt == 0))
-      return -1;
-#endif
-    return _MCF_once_wait_slow(__once, __timeout_opt);
+    return 1;
   }
 
 __MCF_CXX(})  /* extern "C"  */

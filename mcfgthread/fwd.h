@@ -1,32 +1,11 @@
-/* This file is part of MCF Gthread.
- * Copyright (C) 2022-2025 LH_Mouse. All wrongs reserved.
- *
- * MCF Gthread is free software. Licensing information is included in
- * LICENSE.TXT as a whole. The GCC Runtime Library Exception applies
- * to this file.  */
-
 #ifndef __MCFGTHREAD_FWD_
 #define __MCFGTHREAD_FWD_
 
-#include "version.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
 
-#if !defined _WIN32_WINNT
-#  define _WIN32_WINNT  0x0601
-#elif _WIN32_WINNT < 0x0601
-#  warning Please define `_WIN32_WINNT` to at least Windows 7.
-#endif
-
-#if defined __arm__ || defined _M_ARM
-#  error 32-bit ARM target is not supported.
-#endif
-
-/* Define language-support macros. We start from C89 (which doesn't have an
- * identification macro) and then redefine these macros according to
- * `__STDC_VERSION__` and `__cplusplus`.  */
 #define __MCF_C(...)     __VA_ARGS__
 #define __MCF_CXX(...)
 #define __MCF_noexcept
@@ -335,125 +314,9 @@ __MCF_runtime_failure(const char* __where)
 #define __MCF_ASSERT(...)    ((__VA_ARGS__) ? (void) 0 : __MCF_UNREACHABLE)
 #define __MCF_CHECK(...)    ((__VA_ARGS__) ? (void) 0 : __MCF_runtime_failure(__MCF_EX __func__))
 
-/* Below are public declarations for users.  */
-typedef void* __MCF_HANDLE;
-typedef struct timespec __MCF_timespec;
-
-typedef struct __MCF_dtor_element __MCF_dtor_element;
-typedef struct __MCF_dtor_queue __MCF_dtor_queue;
-typedef struct __MCF_tls_table __MCF_tls_table;
-typedef struct __MCF_tls_element __MCF_tls_element;
-
-typedef struct __MCF_cond _MCF_cond;
-typedef struct __MCF_mutex _MCF_mutex;
-typedef struct __MCF_shared_mutex _MCF_shared_mutex;
-typedef struct __MCF_once _MCF_once;
-typedef struct __MCF_sem _MCF_sem;
-typedef struct __MCF_event _MCF_event;
-typedef struct __MCF_thread _MCF_thread;
-typedef int _MCF_thread_priority;
-typedef struct __MCF_tls_key _MCF_tls_key;
-
-/* See `_MCF_cond_wait()` for details about these callbacks.  */
-typedef intptr_t _MCF_cond_unlock_callback(intptr_t __lock_arg);
-typedef void _MCF_cond_relock_callback(intptr_t __lock_arg, intptr_t __unlocked);
-
-/* Define the prototype for thread procedures.  */
-typedef void _MCF_thread_procedure(_MCF_thread* __thrd);
-
-/* Define the prototype for destructors for `_MCF_tls_key_new()`.  */
-typedef void _MCF_tls_dtor(void* __ptr);
-
-/* Define the prototype for destructors for `atexit()` and `at_quick_exit()`.  */
-typedef void __MCF_atexit_callback(void);
-
-/* Define the prototype for `call_once()`.  */
-typedef void __MCF_once_callback(void);
-
-/* Define the prototype for destructors for `__cxa_atexit()`, `__cxa_at_quick_exit()`
- * and `__cxa_thread_atexit()`.  */
 typedef void __MCF_cxa_dtor_cdecl(void* __arg);
 typedef void __fastcall __MCF_cxa_dtor_fastcall(void* __arg);
-
-/* In the case of i386, the argument is passed both via the ECX register and on
- * the stack, to allow both `__cdecl` and `__thiscall` functions to work
- * properly. GCC and Clang accept `__thiscall` on non-member functions as an
- * extension, but MSVC doesn't so we use `__fastcall` there.  */
-#if defined __GNUC__ || defined __clang__
-#  define __MCF_CXA_DTOR_DUAL_ABI  1
-__MCF_EX typedef void __thiscall __MCF_cxa_dtor_thiscall(void* __arg);
-#else
-typedef void __fastcall __MCF_cxa_dtor_thiscall(void* __arg);
-#endif
-
-#if defined __MCF_CXA_DTOR_DUAL_ABI || defined __cplusplus
-#  define __MCF_TRANSPARENT_UNION   union __MCF_C(__attribute__((__transparent_union__)))
-#  define __MCF_TRANSPARENT_UNION_FIELD(tag, type, x)  \
-    __MCF_CXX(__MCF_CXX11(constexpr) tag(type x##_) __MCF_noexcept : x(x##_) { })  \
-    /* ^= constructor / field => */ type x  /* no semicolon  */
-typedef union __MCF_cxa_dtor_any __MCF_cxa_dtor_any_;
-__MCF_TRANSPARENT_UNION __MCF_cxa_dtor_any
-  {
-    __MCF_TRANSPARENT_UNION_FIELD(__MCF_cxa_dtor_any, __MCF_cxa_dtor_cdecl*, __cdecl_ptr);
-    __MCF_TRANSPARENT_UNION_FIELD(__MCF_cxa_dtor_any, __MCF_atexit_callback*, __nullary_ptr);
-#  if defined __MCF_M_X8632
-    __MCF_TRANSPARENT_UNION_FIELD(__MCF_cxa_dtor_any, __MCF_cxa_dtor_fastcall*, __fastcall_ptr);
-    __MCF_TRANSPARENT_UNION_FIELD(__MCF_cxa_dtor_any, __MCF_cxa_dtor_thiscall*, __thiscall_ptr);
-#  endif
-  };
-#else
-typedef __MCF_cxa_dtor_thiscall* __MCF_cxa_dtor_any_;
-#endif
-
-/* Gets the last error number, like `GetLastError()`.  */
-__MCF_FWD_IMPORT __MCF_FN_PURE
-uint32_t
-_MCF_get_win32_error(void)
-  __MCF_noexcept;
-
-/* Gets the system page size, which is usually 4KiB or 8KiB.  */
-__MCF_FWD_IMPORT __MCF_FN_CONST
-size_t
-_MCF_get_page_size(void)
-  __MCF_noexcept;
-
-/* Gets the number of logical processors in the current group.  */
-__MCF_FWD_IMPORT __MCF_FN_CONST
-size_t
-_MCF_get_processor_count(void)
-  __MCF_noexcept;
-
-/* Gets the mask of active processors. Each bit 1 denotes a processor that
- * has been configured into the system.  */
-__MCF_FWD_IMPORT __MCF_FN_CONST
-uintptr_t
-_MCF_get_active_processor_mask(void)
-  __MCF_noexcept;
-
-/* Declare some helper functions.  */
-__MCF_ALWAYS_INLINE __MCF_CXX11(constexpr)
-size_t
-_MCF_minz(size_t __x, size_t __y)
-  __MCF_noexcept
-  {
-    return (__y < __x) ? __y : __x;
-  }
-
-__MCF_ALWAYS_INLINE __MCF_CXX11(constexpr)
-size_t
-_MCF_maxz(size_t __x, size_t __y)
-  __MCF_noexcept
-  {
-    return (__x < __y) ? __y : __x;
-  }
-
-__MCF_ALWAYS_INLINE __MCF_CXX11(constexpr)
-intptr_t
-_MCF_dim(intptr_t __x, intptr_t __y)
-  __MCF_noexcept
-  {
-    return (__x > __y) ? (__x - __y) : 0;
-  }
+typedef __MCF_cxa_dtor_cdecl* __MCF_cxa_dtor_any_;
 
 __MCF_CXX(})  /* extern "C"  */
 #endif  /* __MCFGTHREAD_FWD_  */

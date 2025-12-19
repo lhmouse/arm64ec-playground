@@ -5,13 +5,18 @@
  * LICENSE.TXT as a whole. The GCC Runtime Library Exception applies
  * to this file.  */
 
-#include "xprecompiled.h"
-#define __MCF_GTHR_AUX_IMPORT  __MCF_DLLEXPORT
-#define __MCF_GTHR_AUX_INLINE  __MCF_DLLEXPORT
+#define WIN32_LEAN_AND_MEAN  1
+#define NOMINMAX  1
+#define NOGDI  1
+#define NOMSG  1
+#define _WIN32_WINNT  0x0601
+#include <windows.h>
+#define __MCF_GTHR_AUX_IMPORT  __declspec(dllexport)
+#define __MCF_GTHR_AUX_INLINE  __declspec(dllexport)
 #include "gthr_aux.h"
 #include "xglobals.h"
 
-__MCF_DLLEXPORT
+__declspec(dllexport)
 void
 __MCF_gthr_call_once_seh_take_over(_MCF_once* once, __MCF_cxa_dtor_any_ init_proc, void* arg)
   {
@@ -27,69 +32,7 @@ __asm__ (
 "\n .def " __MCF_USYM "do_call_once_seh_take_over; .scl 3; .type 32; .endef"
 "\n " __MCF_USYM "do_call_once_seh_take_over:"
 #if defined __MCF_M_X8632_ASM
-/* On x86-32, SEH is stack-based. The stack is used as follows:
- *
- *    -24: argument to subroutines
- *    -20: unused
- *    -16: establisher frame; pointer to previous frame
- *    -12: `_do_i386_call_once_on_except`
- *     -8: unused
- *     -4: saved ESI
- * EBP  0: saved frame pointer
- *      4: return address
- * CFA  8: `once`
- *     12: `init_proc`
- *     16: `arg`
- */
-"\n   push ebp"
-"\n   mov ebp, esp"
-"\n   push esi"
-"\n   sub esp, 20"
-/* Initialize the constant zero.  */
-"\n   xor esi, esi"
-/* Install an SEH handler.  */
-"\n   mov eax, DWORD PTR fs:[esi]"
-"\n   lea ecx, [ebp - 16]"
-"\n   mov DWORD PTR [ecx], eax"
-"\n   mov DWORD PTR [ecx + 4], OFFSET _do_i386_call_once_on_except"
-"\n   mov DWORD PTR fs:[esi], ecx"
-/* Make the call `(*init_proc) (arg)`. The argument is passed both via the
- * ECX register and on the stack, to allow both `__cdecl` and `__thiscall`
- * functions to work properly.  */
-"\n   mov ecx, DWORD PTR [ebp + 16]"
-"\n   mov DWORD PTR [ebp - 24], ecx"
-"\n   call DWORD PTR [ebp + 12]"
-/* Dismantle the SEH handler.  */
-"\n   mov eax, DWORD PTR [ebp - 16]"
-"\n   mov DWORD PTR fs:[esi], eax"
-/* Disarm the once flag with a tail call.  */
-"\n   lea esp, [ebp - 4]"
-"\n   pop esi"
-"\n   pop ebp"
-"\n   jmp __MCF_once_release"
-/* Define the exception handler, which is called either when an exception is
- * raised, or the stack is being unwound.  */
-"\n .def _do_i386_call_once_on_except; .scl 3; .type 32; .endef"
-"\n _do_i386_call_once_on_except:"
-/* Check whether `ExceptionFlags` contains `EXCEPTION_UNWINDING`.  */
-"\n   mov ecx, DWORD PTR [esp + 4]"
-"\n   test BYTE PTR [ecx + 4], 2"
-"\n   jz 1001f"
-/* Locate the once flag from `EstablisherFrame`, and reset it.  */
-"\n   mov eax, DWORD PTR [esp + 8]"
-"\n   push DWORD PTR [eax + 24]"
-"\n   call __MCF_once_abort"
-"\n   pop eax"
-"\n 1001:"
-/* Return `ExceptionContinueSearch`.  */
-"\n   mov eax, 1"
-"\n   ret"
-#  if defined __MCF_IN_DLL
-"\n .globl ___MCF_gthr_do_i386_call_once_on_except"
-"\n .equiv ___MCF_gthr_do_i386_call_once_on_except, _do_i386_call_once_on_except"
-#  elif defined _MSC_VER
-"\n .safeseh _do_i386_call_once_on_except"
-#  endif
+ unimplemented
 #elif defined __MCF_M_X8664_ASM
 /* On x86-64, SEH is table-based. We register an unwind handler which is not
  * called when an exception is raised, but is called when the stack is being
