@@ -16,17 +16,6 @@ __MCF_CXX(extern "C" {)
 #  define __MCF_ONCE_INLINE  __MCF_GNU_INLINE
 #endif
 
-/* Define the once flag struct.
- * This takes up the same storage as a pointer.  */
-typedef struct __MCF_once _MCF_once;
-struct __MCF_once
-  {
-    __MCF_EX uintptr_t __ready : 8;  /* this conforms to the Itanium C++ ABI  */
-    __MCF_EX uintptr_t __locked : 1;
-    __MCF_EX uintptr_t __nsleep : __MCF_PTR_BITS - 9;  /* number of sleeping threads  */
-  };
-
-
 /* Initializes a once-initialization flag dynamically. Static ones should be
  * initialized with `{0}`, like other structs.
  *
@@ -35,7 +24,7 @@ struct __MCF_once
  * state.  */
 __MCF_ONCE_INLINE
 void
-_MCF_once_init(_MCF_once* __once)
+_MCF_once_init(int* __once)
   __MCF_noexcept;
 
 /* Attempts to lock a once-initialization flag.
@@ -58,12 +47,12 @@ _MCF_once_init(_MCF_once* __once)
  * returns 0 immediately.  */
 __MCF_ONCE_IMPORT
 int
-_MCF_once_wait_slow(_MCF_once* __once, const int64_t* __timeout_opt)
+_MCF_once_wait_slow(int* __once, const int64_t* __timeout_opt)
   __MCF_noexcept;
 
 __MCF_ONCE_INLINE
 int
-_MCF_once_wait(_MCF_once* __once, const int64_t* __timeout_opt)
+_MCF_once_wait(int* __once, const int64_t* __timeout_opt)
   __MCF_noexcept;
 
 /* Cancels a once-initialization flag which shall be in the LOCKED state. If
@@ -74,7 +63,7 @@ _MCF_once_wait(_MCF_once* __once, const int64_t* __timeout_opt)
  * return 1.  */
 __MCF_ONCE_IMPORT
 void
-_MCF_once_abort(_MCF_once* __once)
+_MCF_once_abort(int* __once)
   __MCF_noexcept;
 
 /* Releases a once-initialization flag which shall be in the LOCKED state. If
@@ -84,7 +73,7 @@ _MCF_once_abort(_MCF_once* __once)
  * are sleeping on this flag, whose calls to `_MCF_once_wait()` will return 0.  */
 __MCF_ONCE_IMPORT
 void
-_MCF_once_release(_MCF_once* __once)
+_MCF_once_release(int* __once)
   __MCF_noexcept;
 
 /* Define inline functions after all declarations.
@@ -94,14 +83,14 @@ _MCF_once_release(_MCF_once* __once)
  * this file.  */
 __MCF_ONCE_INLINE
 void
-_MCF_once_init(_MCF_once* __once)
+_MCF_once_init(int* __once)
   __MCF_noexcept
   {
   }
 
 __MCF_ONCE_INLINE
 int
-_MCF_once_wait(_MCF_once* __once, const int64_t* __timeout_opt)
+_MCF_once_wait(int* __once, const int64_t* __timeout_opt)
   __MCF_noexcept
   {
     return 1;

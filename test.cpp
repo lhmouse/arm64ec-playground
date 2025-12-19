@@ -15,7 +15,7 @@ main(void)
   {
     ::fprintf(stderr, "main\n");
     try {
-      ::_MCF_once once = {};
+      int once = 0;
       ::__MCF_gthr_call_once_seh(&once, once_do_it, (void*) 1);
       ::abort();
     }

@@ -17,19 +17,19 @@
 
 __declspec(dllexport)
 int
-_MCF_once_wait_slow(_MCF_once* once, const int64_t* timeout_opt)
+_MCF_once_wait_slow(int* once, const int64_t* timeout_opt)
   {
     return 1;
   }
 
 __declspec(dllexport) __MCF_NEVER_INLINE
 void
-_MCF_once_abort(_MCF_once* once)
+_MCF_once_abort(int* once)
   {
   }
 
 __declspec(dllexport) __MCF_NEVER_INLINE
 void
-_MCF_once_release(_MCF_once* once)
+_MCF_once_release(int* once)
   {
   }

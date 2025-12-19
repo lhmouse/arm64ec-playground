@@ -19,17 +19,17 @@ __MCF_CXX(extern "C" {)
 
 __MCF_GTHR_AUX_INLINE
 void
-__MCF_gthr_call_once_seh(_MCF_once* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
+__MCF_gthr_call_once_seh(int* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
   __MCF_MAY_THROW;
 
 __MCF_GTHR_AUX_IMPORT
 void
-__MCF_gthr_call_once_seh_take_over(_MCF_once* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
+__MCF_gthr_call_once_seh_take_over(int* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
   __MCF_MAY_THROW;
 
 __MCF_GTHR_AUX_INLINE
 void
-__MCF_gthr_call_once_seh(_MCF_once* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
+__MCF_gthr_call_once_seh(int* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
   __MCF_MAY_THROW
   {
     int __err = _MCF_once_wait(__once, __MCF_nullptr);

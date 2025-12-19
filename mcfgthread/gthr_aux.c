@@ -17,7 +17,7 @@
 
 __declspec(dllexport)
 void
-__MCF_gthr_call_once_seh_take_over(_MCF_once* once, __MCF_cxa_dtor_any_ init_proc, void* arg)
+__MCF_gthr_call_once_seh_take_over(int* once, __MCF_cxa_dtor_any_ init_proc, void* arg)
   {
     /* This can't be declared as a function, otherwise GCC will make the
      * definition visible externally.  */
