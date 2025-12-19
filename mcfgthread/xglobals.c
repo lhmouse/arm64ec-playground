@@ -40,30 +40,6 @@ DllMainCRTStartup(PVOID instance, ULONG reason, PVOID reserved)
     return 1;
   }
 
-#if defined _MSC_VER
-/* Microsoft LINK requires this for a reason.  */
-const int _fltused __MCF_CRT_RDATA = 0x9875;
-#endif
-
-#if defined __MCF_M_X8632
-/* On x86-32, the load config directory contains the address and size of the
- * exception handler table. Exception handlers that are not in this table
- * will be rejected by the system. `__MCF_i386_se_handler_table` points to an
- * array of RVAs to valid handlers, and the value of (not the value it points
- * to) `__MCF_i386_se_handler_count` is the number of handlers.  */
-extern const ULONG __MCF_i386_se_handler_table[];
-extern char __MCF_i386_se_handler_count[];
-__asm__ (
-"\n .section .rdata, \"dr\""
-"\n   .p2align 2"
-"\n ___MCF_i386_se_handler_table:"
-"\n   .rva ___MCF_seh_top"
-"\n   .rva ___MCF_gthr_do_i386_call_once_on_except"
-"\n .equiv ___MCF_i386_se_handler_count, (. - ___MCF_i386_se_handler_table) / 4"
-"\n .text"
-);
-#endif
-
 #if defined __MCF_M_ARM64EC
 /* This section has been heavily modified from 'chpe.S' from mingw-w64. Only
  * symbols that are documented by Microsoft are kept. Original code is declared
@@ -258,10 +234,6 @@ const _load_config_used __attribute__((__section__(".rdata"), __used__)) =
   {
     .Size = sizeof(_load_config_used),
     .DependentLoadFlags = LOAD_LIBRARY_SEARCH_SYSTEM32,
-#if defined __MCF_M_X8632
-    .SEHandlerTable = (ULONG_PTR) __MCF_i386_se_handler_table,
-    .SEHandlerCount = (ULONG_PTR) __MCF_i386_se_handler_count,
-#endif
 #if defined __MCF_M_ARM64EC
     .CHPEMetadataPointer = (ULONG_PTR) __MCF_arm64ec_chpe_metadata,
 #endif
