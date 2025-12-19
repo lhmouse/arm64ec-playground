@@ -89,14 +89,7 @@ __MCF_DLLEXPORT __MCF_NEVER_INLINE
 void
 __MCF_batch_release_common(const void* key, size_t count)
   {
-    /* A call to `ExitProcess()` terminates all the other threads, even if
-     * they are waiting. We don't release the keyed event in this case, as it
-     * blocks the calling thread infinitely if there is no thread to wake up.
-     * See <https://github.com/lhmouse/mcfgthread/issues/21>.  */
-    size_t woken_num = 0;
-    while((woken_num != count) && !__MCF_is_process_shutting_down())
-      if(__MCF_keyed_event_signal(key, &(__MCF_winnt_timeout) { .__li.QuadPart = -1000 }) == 0)
-        woken_num ++;
+
   }
 
 __MCF_DLLEXPORT __MCF_NEVER_INLINE
@@ -123,28 +116,6 @@ __MCF_win32_ntstatus_p(NTSTATUS status, void* ptr)
     return ptr;
   }
 
-static
-int
-__fastcall
-do_pop_static_dtor(__MCF_dtor_element* elem, _MCF_mutex* mtx, __MCF_dtor_queue* queue, void* dso)
-  {
-    _MCF_mutex_lock(mtx, __MCF_nullptr);
-    int err = __MCF_dtor_queue_pop(elem, queue, dso);
-    _MCF_mutex_unlock(mtx);
-    return err;
-  }
-
-__MCF_DLLEXPORT
-void
-__MCF_run_static_dtors(_MCF_mutex* mtx, __MCF_dtor_queue* queue, void* dso)
-  {
-    __MCF_SEH_DEFINE_TERMINATE_FILTER;
-    __MCF_dtor_element elem;
-
-    while(do_pop_static_dtor(&elem, mtx, queue, dso) == 0)
-      __MCF_invoke_cxa_dtor(elem.__dtor, elem.__this);
-  }
-
 /* These are constants that have to be initialized at load time. The
  * initializers prevent them from being placed into the`.bss` section.  */
 __MCF_BR(GUID) const __MCF_crt_gthread_guid = { __MCF_GUID(9FB2D15C,C5F2,4AE7,868D,2769591B8E92) };
@@ -154,12 +125,6 @@ SYSTEM_INFO __MCF_crt_sysinfo = { .dwPageSize = 1 };
 HMODULE __MCF_crt_kernelbase = __MCF_BAD_PTR;
 HMODULE __MCF_crt_ntdll = __MCF_BAD_PTR;
 decltype_TlsGetValue2* __MCF_crt_TlsGetValue = __MCF_BAD_PTR;
-
-/* This is a pointer to global data. If this library is linked statically,
- * all instances of this pointer in the same process should point to the
- * same memory. The initializer prevents it from being placed into the
- * `.bss` section.  */
-__MCF_crt_xglobals* restrict __MCF_g = __MCF_BAD_PTR;
 
 /* When building the shared library, invoke common routines from the DLL
  * entry point callback. This has the same signature as `DllMain()`.  */
@@ -184,39 +149,6 @@ DllMainCRTStartup(PVOID instance, ULONG reason, PVOID reserved)
     (void) reason;
     (void) reserved;
     return 1;
-  }
-
-/* According to GCC documentation, these functions are required by a
- * freestanding implementation. When doing a non-emulative build, they are
- * also exported for reuse.  */
-__MCF_DLLEXPORT __attribute__((__flatten__))
-void*
-memcpy(void* restrict dst, const void* restrict src, size_t size)
-  {
-    return __MCF_mcopy(dst, src, size);
-  }
-
-__MCF_DLLEXPORT __attribute__((__flatten__))
-void*
-memmove(void* dst, const void* src, size_t size)
-  {
-    return ((uintptr_t) dst - (uintptr_t) src >= size)
-           ? __MCF_mcopy(dst, src, size)
-           : __MCF_mcopy_backward(dst, src, size);
-  }
-
-__MCF_DLLEXPORT __attribute__((__flatten__))
-void*
-memset(void* dst, int val, size_t size)
-  {
-    return __MCF_mfill(dst, val, size);
-  }
-
-__MCF_DLLEXPORT __attribute__((__flatten__))
-int
-memcmp(const void* src, const void* dst, size_t size)
-  {
-    return __MCF_mcompare(src, dst, size);
   }
 
 #if defined _MSC_VER
