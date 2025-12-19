@@ -1,6 +1,7 @@
-#include "mcfgthread/gthr_aux.h"
 #include <stdio.h>
-#include <stdlib.h>
+
+using once_fn = void (void*);
+extern "C" __declspec(dllimport) void my_once(int* flag, once_fn* fn, void* arg);
 
 static
 void
@@ -16,8 +17,8 @@ main(void)
     ::fprintf(stderr, "main\n");
     try {
       int once = 0;
-      ::__MCF_gthr_call_once_seh(&once, once_do_it, (void*) 1);
-      ::abort();
+      ::my_once(&once, once_do_it, (void*) 1);
+      __builtin_trap();
     }
     catch(...) { }
     ::fprintf(stderr, "done\n");

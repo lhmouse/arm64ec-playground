@@ -1,39 +1,30 @@
-/* This file is part of MCF Gthread.
- * Copyright (C) 2022-2025 LH_Mouse. All wrongs reserved.
- *
- * MCF Gthread is free software. Licensing information is included in
- * LICENSE.TXT as a whole. The GCC Runtime Library Exception applies
- * to this file.  */
-
-#define WIN32_LEAN_AND_MEAN  1
-#define NOMINMAX  1
-#define NOGDI  1
-#define NOMSG  1
-#define _WIN32_WINNT  0x0601
-#include <windows.h>
-#define __MCF_GTHR_AUX_IMPORT  __declspec(dllexport)
-#define __MCF_GTHR_AUX_INLINE  __declspec(dllexport)
-#include "gthr_aux.h"
+int _MCF_once_wait(int* once, const void* timeout_opt);
+void _MCF_once_release(int* once);
+typedef void my_once_fn(void*);
 
 __declspec(dllexport)
 void
-__MCF_gthr_call_once_seh_take_over(int* once, __MCF_cxa_dtor_any_ init_proc, void* arg)
+my_once(int* once, my_once_fn* init_proc, void* arg)
   {
+    int __err = _MCF_once_wait(once, 0);
+    if(__err == 0)
+      return;  /* already initialized  */
+
     /* This can't be declared as a function, otherwise GCC will make the
      * definition visible externally.  */
     extern const char do_call_once_seh_take_over[];
-    typedef __typeof__(__MCF_gthr_call_once_seh_take_over) self_type;
-    (* __MCF_CAST_PTR(self_type, do_call_once_seh_take_over)) (once, init_proc, arg);
+    typedef __typeof__(my_once) self_type;
+    (*(self_type*) do_call_once_seh_take_over) (once, init_proc, arg);
   }
 
 __asm__ (
-"\n .section .text$__MCF_gthr_call_once_seh_take_over, \"x\""
+"\n .text"
 "\n   .p2align 2"
-"\n .def " __MCF_USYM "do_call_once_seh_take_over; .scl 3; .type 32; .endef"
-"\n " __MCF_USYM "do_call_once_seh_take_over:"
-#if defined __MCF_M_X8632_ASM
+"\n .def do_call_once_seh_take_over; .scl 3; .type 32; .endef"
+"\n do_call_once_seh_take_over:"
+#if defined __i686__
  unimplemented
-#elif defined __MCF_M_X8664_ASM
+#elif defined __amd64__ && !defined __arm64ec__
 /* On x86-64, SEH is table-based. We register an unwind handler which is not
  * called when an exception is raised, but is called when the stack is being
  * unwound. The stack is used as follows:
@@ -69,7 +60,7 @@ __asm__ (
 "\n   pop rbp"
 "\n   jmp _MCF_once_release"
 "\n .seh_endproc"
-#elif defined __MCF_M_ARM64_ASM
+#elif defined __aarch64__ || defined __arm64ec__
 /* On ARM64, SEH is table-based. Unlike x86-64 but like x86-32, there is only
  * one kind of handler which is called in either case. The stack is used as
  * follows:
@@ -90,7 +81,7 @@ __asm__ (
 "\n   str x0, [sp, 16]"
 /* Make the call `(*init_proc) (arg)`.  */
 "\n   mov x0, x2"
-#  if defined __MCF_M_ARM64
+#  if defined __aarch64__
 "\n   blr x1"
 #  else
 "\n   mov x11, x1"

@@ -1,23 +1,19 @@
-/* This file is part of MCF Gthread.
- * Copyright (C) 2022-2025 LH_Mouse. All wrongs reserved.
- *
- * MCF Gthread is free software. Licensing information is included in
- * LICENSE.TXT as a whole. The GCC Runtime Library Exception applies
- * to this file.  */
+#if defined _WIN64
+#  define __MCF_64_32(x, y)  x
+#elif defined _WIN32
+#  define __MCF_64_32(x, y)  y
+#else
+#  error Not supported
+#endif
 
-#define WIN32_LEAN_AND_MEAN  1
-#define NOMINMAX  1
-#define NOGDI  1
-#define NOMSG  1
-#define _WIN32_WINNT  0x0601
-#include <windows.h>
-#define __MCF_XGLOBALS_IMPORT  __declspec(dllexport)
-#define __MCF_XGLOBALS_INLINE  __declspec(dllexport)
-#define __MCF_XGLOBALS_READONLY
-#include "fwd.h"
+typedef void* PVOID;
+typedef unsigned char BYTE;
+typedef unsigned short WORD;
+typedef unsigned long DWORD, ULONG;
+typedef unsigned long long QWORD, ULONGLONG;
+typedef unsigned __MCF_64_32(long long, int) UINT_PTR;
+typedef unsigned __MCF_64_32(long long, long) ULONG_PTR;
 
-/* When building the shared library, invoke common routines from the DLL
- * entry point callback. This has the same signature as `DllMain()`.  */
 #if defined __MSYS__
 #  define DllMainCRTStartup  _msys_dll_entry
 #elif defined __CYGWIN__
@@ -40,7 +36,7 @@ DllMainCRTStartup(PVOID instance, ULONG reason, PVOID reserved)
     return 1;
   }
 
-#if defined __MCF_M_ARM64EC
+#if defined __arm64ec__
 /* This section has been heavily modified from 'chpe.S' from mingw-w64. Only
  * symbols that are documented by Microsoft are kept. Original code is declared
  * to be in the Public Domain.  */
@@ -233,8 +229,7 @@ struct _IMAGE_LOAD_CONFIG_DIRECTORY_10_0_26100_0
 const _load_config_used __attribute__((__section__(".rdata"), __used__)) =
   {
     .Size = sizeof(_load_config_used),
-    .DependentLoadFlags = LOAD_LIBRARY_SEARCH_SYSTEM32,
-#if defined __MCF_M_ARM64EC
+#if defined __arm64ec__
     .CHPEMetadataPointer = (ULONG_PTR) __MCF_arm64ec_chpe_metadata,
 #endif
   };
