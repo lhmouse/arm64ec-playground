@@ -235,7 +235,6 @@ const _load_config_used __attribute__((__section__(".rdata"), __used__)) =
   };
 
 int _MCF_once_wait(int* once, const void* timeout_opt);
-void _MCF_once_release(int* once);
 typedef void my_once_fn(void*);
 
 __declspec(dllexport)
@@ -294,7 +293,7 @@ __asm__ (
 "\n   mov rcx, QWORD PTR [rbp + 16]"
 "\n   add rsp, 32"
 "\n   pop rbp"
-"\n   jmp _MCF_once_release"
+"\n   ret"   // "\n   jmp _MCF_once_release"
 "\n .seh_endproc"
 #elif defined __aarch64__ || defined __arm64ec__
 /* On ARM64, SEH is table-based. Unlike x86-64 but like x86-32, there is only
@@ -331,7 +330,7 @@ __asm__ (
 "\n   ldp fp, lr, [sp], 32"
 "\n .seh_save_fplr_x 32"
 "\n .seh_endepilogue"
-"\n   b _MCF_once_release"
+"\n   ret"   // "\n   b _MCF_once_release"
 "\n .seh_endproc"
 #endif
 "\n .text"
