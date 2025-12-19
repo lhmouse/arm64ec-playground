@@ -14,7 +14,7 @@
 #define __MCF_XGLOBALS_IMPORT  __declspec(dllexport)
 #define __MCF_XGLOBALS_INLINE  __declspec(dllexport)
 #define __MCF_XGLOBALS_READONLY
-#include "xglobals.h"
+#include "fwd.h"
 
 /* When building the shared library, invoke common routines from the DLL
  * entry point callback. This has the same signature as `DllMain()`.  */

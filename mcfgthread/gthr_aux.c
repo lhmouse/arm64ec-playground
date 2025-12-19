@@ -14,7 +14,6 @@
 #define __MCF_GTHR_AUX_IMPORT  __declspec(dllexport)
 #define __MCF_GTHR_AUX_INLINE  __declspec(dllexport)
 #include "gthr_aux.h"
-#include "xglobals.h"
 
 __declspec(dllexport)
 void

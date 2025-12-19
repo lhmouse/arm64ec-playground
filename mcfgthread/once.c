@@ -14,7 +14,6 @@
 #define __MCF_ONCE_IMPORT  __declspec(dllexport)
 #define __MCF_ONCE_INLINE  __declspec(dllexport)
 #include "once.h"
-#include "xglobals.h"
 
 __declspec(dllexport)
 int

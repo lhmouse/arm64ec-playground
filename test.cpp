@@ -1,4 +1,4 @@
-#include "../mcfgthread/gthr_aux.h"
+#include "mcfgthread/gthr_aux.h"
 #include <stdio.h>
 #include <stdlib.h>
 
