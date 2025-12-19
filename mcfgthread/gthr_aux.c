@@ -50,7 +50,6 @@ __asm__ (
  *     40: unused
  */
 "\n .seh_proc do_call_once_seh_take_over"
-"\n .seh_handler do_amd64_call_once_on_unwind, @unwind"
 "\n   push rbp"
 "\n .seh_pushreg rbp"
 "\n   mov rbp, rsp"
@@ -70,17 +69,6 @@ __asm__ (
 "\n   pop rbp"
 "\n   jmp _MCF_once_release"
 "\n .seh_endproc"
-/* Define the unwind handler, which is called the stack is being unwound.  */
-"\n .def do_amd64_call_once_on_unwind; .scl 3; .type 32; .endef"
-"\n do_amd64_call_once_on_unwind:"
-"\n   sub rsp, 40"
-/* Locate the once flag from `EstablisherFrame`, and reset it.  */
-"\n   mov rcx, QWORD PTR [rdx + 16]"
-"\n   call _MCF_once_abort"
-/* Return `ExceptionContinueSearch`.  */
-"\n   mov eax, 1"
-"\n   add rsp, 40"
-"\n   ret"
 #elif defined __MCF_M_ARM64_ASM
 /* On ARM64, SEH is table-based. Unlike x86-64 but like x86-32, there is only
  * one kind of handler which is called in either case. The stack is used as
@@ -93,7 +81,6 @@ __asm__ (
  * CFA 32: establisher frame
  */
 "\n .seh_proc do_call_once_seh_take_over"
-"\n .seh_handler do_arm64_call_once_on_except, @except"
 "\n   stp fp, lr, [sp, -32]!"
 "\n .seh_save_fplr_x 32"
 "\n   mov fp, sp"
@@ -119,22 +106,6 @@ __asm__ (
 "\n .seh_endepilogue"
 "\n   b _MCF_once_release"
 "\n .seh_endproc"
-/* Define the exception handler, which is called either when an exception is
- * raised, or the stack is being unwound.  */
-"\n .def do_arm64_call_once_on_except; .scl 3; .type 32; .endef"
-"\n do_arm64_call_once_on_except:"
-"\n   stp fp, lr, [sp, -16]!"
-/* Check whether `ExceptionFlags` contains `EXCEPTION_UNWINDING`.  */
-"\n   ldr w8, [x0, 4]"
-"\n   tbz w8, 1, 3001f"
-/* Locate the once flag from `EstablisherFrame`, and reset it.  */
-"\n   ldur x0, [x1, -16]"
-"\n   bl _MCF_once_abort"
-"\n 3001:"
-/* Return `ExceptionContinueSearch`.  */
-"\n   mov w0, 1"
-"\n   ldp fp, lr, [sp], 16"
-"\n   ret"
 #endif
 "\n .text"
 );
