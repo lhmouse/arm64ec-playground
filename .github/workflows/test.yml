@@ -37,13 +37,13 @@ jobs:
       - name: Run ARM64 EXE, linked against ARM64 DLL
         run: |
              clang --target=aarch64-w64-mingw32 -I. -Imcfgthread mcfgthread\*.c -nostdlib -lkernel32 -lntdll -shared -o libmcfgthread.dll
-             clang++ --target=aarch64-w64-mingw32 -static -I. -Imcfgthread gthr_call_once_unwind_seh.cpp libmcfgthread.dll -o test.exe
+             clang++ --target=aarch64-w64-mingw32 -static -I. -Imcfgthread test.cpp libmcfgthread.dll -o test.exe
              .\test.exe
 
       - name: Run x86-64 EXE, linked against x86-64 DLL
         run: |
              clang --target=x86_64-w64-mingw32 -masm=intel -I. -Imcfgthread mcfgthread\*.c -nostdlib -lkernel32 -lntdll -shared -o libmcfgthread.dll
-             clang++ --target=x86_64-w64-mingw32 -static -I. -Imcfgthread gthr_call_once_unwind_seh.cpp libmcfgthread.dll -o test.exe
+             clang++ --target=x86_64-w64-mingw32 -static -I. -Imcfgthread test.cpp libmcfgthread.dll -o test.exe
              .\test.exe
 
       - name: Run x86-64 EXE, linked against ARM64EC DLL (no --gc-sections)
