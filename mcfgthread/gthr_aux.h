@@ -13,7 +13,6 @@
 #include "cond.h"
 #include "mutex.h"
 #include "shared_mutex.h"
-#include "thread.h"
 #include <time.h>  /* struct timespec  */
 
 __MCF_CXX(extern "C" {)
@@ -164,11 +163,6 @@ void
 __MCF_gthr_thread_exit_v3(void* __resp)
   __MCF_noexcept;
 
-/* Define inline functions after all declarations.
- * We would like to keep them away from declarations for conciseness, which also
- * matches the disposition of non-inline functions. Note that however, unlike C++
- * inline functions, they have to have consistent inline specifiers throughout
- * this file.  */
 __MCF_GTHR_AUX_INLINE
 void
 __MCF_gthr_call_once_seh(_MCF_once* __once, __MCF_cxa_dtor_any_ __init_proc, void* __arg)
@@ -180,65 +174,6 @@ __MCF_gthr_call_once_seh(_MCF_once* __once, __MCF_cxa_dtor_any_ __init_proc, voi
 
     __MCF_ASSERT(__err == 1);
     __MCF_gthr_call_once_seh_take_over(__once, __init_proc, __arg);
-  }
-
-__MCF_GTHR_AUX_INLINE
-void
-__MCF_gthr_rc_mutex_init(__MCF_gthr_rc_mutex* __rmtx)
-  __MCF_noexcept
-  {
-    __rmtx->__owner[0] = 0;
-    __rmtx->__depth = 0;
-    _MCF_mutex_init(__rmtx->__mutex);
-  }
-
-__MCF_GTHR_AUX_INLINE
-int
-__MCF_gthr_rc_mutex_recurse(__MCF_gthr_rc_mutex* __rmtx)
-  __MCF_noexcept
-  {
-    /* Check whether the mutex has already been owned.  */
-    if(_MCF_atomic_load_32_rlx(__rmtx->__owner) != (int32_t) _MCF_thread_self_tid())
-      return -1;
-
-    /* Increment the recursion count.  */
-    __MCF_ASSERT(__rmtx->__depth < 0x7FFFFFFF);
-    __rmtx->__depth ++;
-    return 0;
-  }
-
-__MCF_GTHR_AUX_INLINE
-int
-__MCF_gthr_rc_mutex_wait(__MCF_gthr_rc_mutex* __rmtx, const int64_t* __timeout_opt)
-  __MCF_noexcept
-  {
-    /* Attempt to take ownership.  */
-    int __err = _MCF_mutex_lock(__rmtx->__mutex, __timeout_opt);
-    if(__err != 0)
-      return __err;
-
-    /* The calling thread owns the mutex now.  */
-    __MCF_ASSERT(__rmtx->__owner[0] == 0);
-    _MCF_atomic_store_32_rlx(__rmtx->__owner, (int32_t) _MCF_thread_self_tid());
-    __MCF_ASSERT(__rmtx->__depth == 0);
-    __rmtx->__depth = 1;
-    return 0;
-  }
-
-__MCF_GTHR_AUX_INLINE
-void
-__MCF_gthr_rc_mutex_release(__MCF_gthr_rc_mutex* __rmtx)
-  __MCF_noexcept
-  {
-    /* Reduce a level of recursion.  */
-    __MCF_ASSERT(__rmtx->__depth > 0);
-    __rmtx->__depth --;
-    if(__rmtx->__depth != 0)
-      return;
-
-    /* Give up ownership now.  */
-    _MCF_atomic_store_32_rlx(__rmtx->__owner, 0);
-    _MCF_mutex_unlock(__rmtx->__mutex);
   }
 
 __MCF_CXX(})  /* extern "C"  */

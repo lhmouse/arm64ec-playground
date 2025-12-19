@@ -9,7 +9,6 @@
 #define __MCFGTHREAD_XGLOBALS_
 
 #include "fwd.h"
-#include "thread.h"
 #include "mutex.h"
 #include "cond.h"
 #include "dtor_queue.h"
