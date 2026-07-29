@@ -30,9 +30,9 @@ jobs:
 
       - name: Download LLVM MinGW
         run: >-
-             curl.exe -LO "https://github.com/mstorsjo/llvm-mingw/releases/download/20251202/llvm-mingw-20251202-ucrt-aarch64.zip" &&
-             unzip llvm-mingw-20251202-ucrt-aarch64.zip &&
-             cvpa llvm-mingw-20251202-ucrt-aarch64/bin | tee -a "${env:GITHUB_PATH}"
+             curl.exe -LO "https://github.com/mstorsjo/llvm-mingw/releases/download/20260728/llvm-mingw-20260728-ucrt-aarch64.zip" &&
+             unzip llvm-mingw-20260728-ucrt-aarch64.zip &&
+             cvpa llvm-mingw-20260728-ucrt-aarch64/bin | tee -a "${env:GITHUB_PATH}"
 
       - name: Run ARM64 EXE, linked against ARM64 DLL
         run: |
